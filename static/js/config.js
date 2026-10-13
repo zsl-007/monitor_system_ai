@@ -68,13 +68,15 @@ const configTemplates = {
         ]
     },
     component: {
-        target: { type: 'select', label: '组件类型', options: ['redis', 'rabbitmq'], default: 'redis' },
+        target: { type: 'select', label: '组件类型', options: ['redis', 'rabbitmq', 'mysql', 'postgresql', 'dm', 'sqlserver'], default: 'redis' },
         extra: [
             { name: 'host', label: '主机', type: 'text', default: 'localhost' },
             { name: 'port', label: '端口', type: 'number', default: '' },
             { name: 'username', label: '用户名', type: 'text', default: '' },
-            { name: 'password', label: '密码', type: 'password', default: '' }
-        ]
+            { name: 'password', label: '密码', type: 'password', default: '' },
+            { name: 'database', label: '数据库名', type: 'text', default: '' }
+        ],
+        testConnection: true
     }
 };
 
@@ -660,7 +662,19 @@ function generateConfigForm(monitorType, template, formType, configData = null) 
             }
         });
     }
-    
+
+    // 测试连接按钮（用于数据库组件监控）
+    if (template.testConnection) {
+        html += `
+            <div class="col-12">
+                <button type="button" class="btn btn-outline-info" onclick="testDatabaseConnection('${formType}')">
+                    <i class="bi bi-plugin"></i> 测试连接
+                </button>
+                <span id="${formType}-db-test-result" class="ms-2"></span>
+            </div>
+        `;
+    }
+
     // 间隔和启用状态
     html += `
         <div class="col-md-6">
@@ -1269,5 +1283,38 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('modal-backdrop')) {
             forceCloseAllModals();
         }
-    });    
+    });
 });
+
+// 测试数据库连接
+async function testDatabaseConnection(formType) {
+    const form = document.getElementById(`${formType}-config-form`);
+    const formData = new FormData(form);
+
+    const resultSpan = document.getElementById(`${formType}-db-test-result`);
+    if (!resultSpan) return;
+    resultSpan.innerHTML = '<span class="text-muted">测试中...</span>';
+
+    try {
+        const response = await fetch('/api/test-database-connection', {
+            method: 'POST',
+            body: new URLSearchParams({
+                db_type: formData.get('target') || '',
+                host: formData.get('extra_config[host]') || 'localhost',
+                port: formData.get('extra_config[port]') || '',
+                username: formData.get('extra_config[username]') || '',
+                password: formData.get('extra_config[password]') || '',
+                database: formData.get('extra_config[database]') || ''
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            resultSpan.innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> 连接成功: ${escapeHtml(data.message)}</span>`;
+        } else {
+            resultSpan.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> 连接失败: ${escapeHtml(data.message)}</span>`;
+        }
+    } catch (error) {
+        resultSpan.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> 请求失败: ${escapeHtml(error.message)}</span>`;
+    }
+}

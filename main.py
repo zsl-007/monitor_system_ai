@@ -1207,6 +1207,37 @@ async def trigger_immediate_check(config_id: int):
     else:
         return {"success": False, "error": "调度器未运行"}
 
+# API路由 - 测试数据库连接
+@app.post("/api/test-database-connection")
+async def test_database_connection(
+    db_type: str = Form(...),
+    host: str = Form(...),
+    port: int = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    database: str = Form(...)
+):
+    """测试数据库连接"""
+    try:
+        from monitors.component import ComponentMonitor
+        monitor = ComponentMonitor()
+        config = {
+            'target': db_type,
+            'extra_config': {
+                'host': host, 'port': port,
+                'username': username, 'password': password,
+                'database': database
+            }
+        }
+        result = await monitor.check(config)
+        return {
+            "success": result.get('is_normal', False),
+            "message": result.get('message', ''),
+            "details": result.get('details', {})
+        }
+    except Exception as e:
+        return {"success": False, "message": f"测试连接失败: {str(e)}"}
+
 # API路由 - 报警数据
 # 在 main.py 的 API 路由部分修改报警数据API
 

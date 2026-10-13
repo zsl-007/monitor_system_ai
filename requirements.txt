@@ -38,3 +38,8 @@ typing_extensions==4.15.0
 tzlocal==5.3.1
 uvicorn==0.38.0
 yarl==1.22.0
+pymysql==1.1.1
+psycopg2-binary==2.9.10
+pymssql==2.3.4
+# dmPython 为达梦数据库专用驱动，需从达梦官方获取，不通过 pip 安装
+# 安装方式：将 dmPython.whl 放入项目目录后 pip install dmPython.whl

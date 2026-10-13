@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}配置管理 - 系统监测平台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .threshold-input {
+        max-width: 120px;
+    }
+    .config-card {
+        transition: all 0.3s ease;
+    }
+    .config-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="bi bi-gear"></i> 配置管理</h2>
+        <p class="text-muted">管理系统监控配置和邮箱设置</p>
+    </div>
+</div>
+
+<!-- 在邮箱配置之前添加项目名称配置 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card config-card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0"><i class="bi bi-pencil-square"></i> 项目名称配置</h5>
+            </div>
+            <div class="card-body">
+                <form id="project-name-form">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="project_name" class="form-label">项目名称</label><small class="text-muted ms-2">(此名称将显示在页面顶部和报警邮件中)</small>
+                            <input type="text" class="form-control" id="project_name" name="project_name" 
+                                   value="{{ project_name }}" placeholder="请输入项目名称" required>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-info">
+                                <i class="bi bi-check-lg"></i> 更新项目名称
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 邮箱配置 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card config-card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0"><i class="bi bi-envelope"></i> 邮箱配置</h5>
+            </div>
+            <div class="card-body">
+                <form id="email-config-form">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="smtp_server" class="form-label">SMTP服务器</label>
+                            <input type="text" class="form-control" id="smtp_server" name="smtp_server" 
+                                   value="{{ email_config.smtp_server if email_config else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="smtp_port" class="form-label">SMTP端口</label>
+                            <input type="number" class="form-control" id="smtp_port" name="smtp_port" 
+                                   value="{{ email_config.smtp_port if email_config else 587 }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="username" class="form-label">用户名</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ email_config.username if email_config else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="password" class="form-label">密码</label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   value="{{ email_config.password if email_config else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="sender" class="form-label">发件人邮箱</label>
+                            <input type="email" class="form-control" id="sender" name="sender" 
+                                   value="{{ email_config.sender if email_config else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="receivers" class="form-label">收件人邮箱（多个用分号隔开）</label>
+                            <input type="text" class="form-control" id="receivers" name="receivers" 
+                                   value="{{ email_config.receivers if email_config else '' }}" required>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ssl_enabled" name="ssl_enabled" 
+                                       {{ 'checked' if email_config and email_config.ssl_enabled else '' }}>
+                                <label class="form-check-label" for="ssl_enabled">启用SSL</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">保存邮箱配置</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="testEmailConfig()">测试发送</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 监控配置 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card config-card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="bi bi-list-check"></i> 监控配置</h5>
+                <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addConfigModal">
+                    <i class="bi bi-plus-circle"></i> 添加配置
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>类型</th>
+                                <th>目标</th>
+                                <th>间隔(秒)</th>
+                                <th>阈值</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for config in monitor_configs %}
+                            <tr>
+                                <td>{{ config.name }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'primary' if config.type in ['cpu','memory','disk'] else 'info' if config.type == 'network' else 'warning' if config.type == 'ssl' else 'success' }}">
+                                        {{ config.type }}
+                                    </span>
+                                </td>
+                                <td><code>{{ config.target }}</code></td>
+                                <td>{{ config.interval_seconds }}</td>
+                                <td>
+                                    <small>
+                                        {% if config.threshold %}
+                                            {% for key, value in config.threshold.items() %}
+                                                {{ key }}: {{ value }}{% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input toggle-switch" type="checkbox" 
+                                               data-config-id="{{ config.id }}" 
+                                               {{ 'checked' if config.enabled else '' }}>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary edit-config" 
+                                            data-config-id="{{ config.id }}" 
+                                            data-bs-toggle="modal" data-bs-target="#editConfigModal">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-config" 
+                                            data-config-id="{{ config.id }}" 
+                                            data-config-name="{{ config.name }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加配置模态框 -->
+<div class="modal fade" id="addConfigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加监控配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="add-config-form">
+                <div class="modal-body">
+                    <div id="add-config-form-content">
+                        <!-- 表单内容会由JavaScript动态生成 -->
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2">加载表单中...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑配置模态框 -->
+<div class="modal fade" id="editConfigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑监控配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="edit-config-form">
+                <div class="modal-body">
+                    <div id="edit-config-form-content">
+                        <!-- 表单内容会由JavaScript动态生成 -->
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2">加载配置中...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <!-- 添加强制关闭按钮 -->
+					<!--
+                    <button type="button" class="btn btn-outline-danger" onclick="forceCloseAllModals()" title="如果模态框无法关闭，点击此按钮">
+                        <i class="bi bi-x-circle"></i> 强制关闭
+                    </button>
+					-->
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- 在文件底部，extra_js 块之前添加 -->
+<!-- 在 config.html 的底部，extra_js 块之前添加 -->
+
+
+{% block extra_js %}
+<script id="disk-partitions-data" type="application/json">
+    {{ disk_partitions | tojson }}
+</script>
+<script>
+    // 从隐藏的JSON元素中读取磁盘分区数据
+    try {
+        const diskPartitionsElement = document.getElementById('disk-partitions-data');
+        if (diskPartitionsElement) {
+            window.diskPartitions = JSON.parse(diskPartitionsElement.textContent);
+        } else {
+            window.diskPartitions = [];
+        }
+    } catch (error) {
+        console.error('解析磁盘分区数据失败:', error);
+        window.diskPartitions = [];
+    }
+</script>
+
+<script id="network-interfaces-data" style="display: none;">
+    {{ network_interfaces | tojson }}
+</script>
+<script>
+    // 安全地获取网络接口数据
+    (function() {
+        const networkInterfacesElement = document.getElementById('network-interfaces-data');
+        if (networkInterfacesElement && networkInterfacesElement.textContent) {
+            try {
+                window.networkInterfaces = JSON.parse(networkInterfacesElement.textContent);
+            } catch (error) {
+                console.error('解析网络接口JSON失败:', error);
+                window.networkInterfaces = [];
+            }
+        } else {
+            console.warn('未找到网络接口数据，使用空数组');
+            window.networkInterfaces = [];
+        }
+    })();
+</script>
+
+<script src="/static/js/config.js"></script>
+{% endblock %}

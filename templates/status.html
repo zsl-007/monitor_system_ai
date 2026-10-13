@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}实时状态 - 系统监测平台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-card {
+        transition: all 0.3s ease;
+    }
+    .status-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .status-normal-borderleft { border-left: 4px solid #28a745; }
+    .status-warning-borderleft { border-left: 4px solid #ffc107; }
+    .status-critical-borderleft { border-left: 4px solid #dc3545; }
+    .status-unknown-borderleft { border-left: 4px solid #6c757d; }
+    
+    .progress {
+        height: 20px;
+    }
+    .scheduler-status {
+        font-size: 0.9rem;
+    }
+    .threshold-info {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+
+    /* 当日健康状态样式 */
+    .health-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .health-item {
+        text-align: center;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .health-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .health-item.enabled {
+        border: 2px solid #e9ecef;
+    }
+    .health-item.disabled {
+        border: 2px dashed #dee2e6;
+        background: #f8f9fa;
+    }
+    .health-name {
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .health-status {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+        border-radius: 12px;
+    }
+    .status-normal { background-color: #d4edda; color: #155724; }
+    .status-warning { background-color: #fff3cd; color: #856404; }
+    .status-critical { background-color: #f8d7da; color: #721c24; }
+    .status-disabled { background-color: #e2e3e5; color: #6c757d; }
+    
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .health-grid {
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        }
+    }    
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-speedometer2"></i> 实时状态</h2>
+        <p class="text-muted">当前系统各项监控指标的实时状态</p>
+    </div>
+</div>
+
+<!-- 新增：当日健康状态卡片 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-heart-pulse text-danger"></i> 当日健康状态
+                    <small class="text-muted ms-2">({{ today_date }})</small>
+                </h5>
+                <div>
+                    <span class="badge bg-success me-2">正常: {{ health_stats|selectattr('is_enabled')|selectattr('alert_count', 'equalto', 0)|list|length }}</span>
+                    <span class="badge bg-warning me-2">报警: {{ health_stats|selectattr('is_enabled')|selectattr('alert_count', 'gt', 0)|list|length }}</span>
+                    <span class="badge bg-secondary">未监控: {{ health_stats|selectattr('is_enabled', 'equalto', false)|list|length }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="health-grid">
+                    {% for stat in health_stats %}
+                    <div class="health-item {% if stat.is_enabled %}enabled{% else %}disabled{% endif %}" data-config-id="{{ stat.config_id }}">
+                        <div class="health-name" title="{{ stat.config_name }}">
+                            {{ stat.config_name }}
+                        </div>
+                        <div>
+                            {% if stat.is_enabled %}
+                                {% if stat.alert_count == 0 %}
+                                    <span class="health-status status-normal">
+                                        <i class="bi bi-check-circle"></i> 正常
+                                    </span>
+                                {% elif stat.alert_count <= 3 %}
+                                    <span class="health-status status-warning">
+                                        <i class="bi bi-exclamation-triangle"></i> {{ stat.alert_count }}次
+                                    </span>
+                                {% else %}
+                                    <span class="health-status status-critical">
+                                        <i class="bi bi-x-circle"></i> {{ stat.alert_count }}次
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="health-status status-disabled">
+                                    <i class="bi bi-pause-circle"></i> 未监控
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- 图例说明 -->
+                <div class="mt-3 pt-3 border-top">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <span class="health-status status-normal me-2"></span>
+                            <small class="text-muted">正常 (0次报警)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="health-status status-warning me-2"></span>
+                            <small class="text-muted">警告 (1-3次报警)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="health-status status-critical me-2"></span>
+                            <small class="text-muted">异常 (>3次报警)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="health-status status-disabled me-2"></span>
+                            <small class="text-muted">未监控</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 调度器状态 -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">调度器状态</h5>
+                <div class="scheduler-status">
+                    <p><strong>运行状态:</strong> 
+                        <span class="badge bg-{{ 'success' if scheduler_status.running else 'danger' }}">
+                            {{ '运行中' if scheduler_status.running else '已停止' }}
+                        </span>
+                    </p>
+                    <p><strong>任务数量:</strong> {{ scheduler_status.task_count }}</p>
+                    <p><strong>运行中的任务:</strong> {{ running_tasks|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">快速操作</h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="refreshStatus()">
+                        <i class="bi bi-arrow-clockwise"></i> 刷新状态
+                    </button>
+                    <button class="btn btn-outline-info" onclick="location.reload()">
+                        <i class="bi bi-arrow-repeat"></i> 重新加载页面
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 监控状态卡片 -->
+<div class="row" id="status-cards">
+    {% for item in status_data %}
+    {# 根据监控类型和阈值动态计算状态 #}
+    {% set status_info = namespace(level='normal', badge_class='success', status_text='正常') %}
+    
+    {# 对于有数值的监控类型（CPU、内存、磁盘、网络、SSL） #}
+    {% if item.value is not none and item.monitor_type in ['cpu', 'memory', 'disk', 'network', 'ssl'] %}
+        {# 获取阈值配置 #}
+        {% set threshold = item.threshold_config %}
+        
+        {# 系统资源监控（CPU、内存、磁盘） #}
+        {% if item.monitor_type in ['cpu', 'memory', 'disk'] %}
+            {% set warning = threshold.get('warning', 80) %}
+            {% set critical = threshold.get('critical', 90) %}
+            
+            {% if item.value >= critical %}
+                {% set status_info.level = 'critical' %}
+                {% set status_info.badge_class = 'danger' %}
+                {% set status_info.status_text = '异常' %}
+            {% elif item.value >= warning %}
+                {% set status_info.level = 'warning' %}
+                {% set status_info.badge_class = 'warning' %}
+                {% set status_info.status_text = '警告' %}
+            {% else %}
+                {% set status_info.level = 'normal' %}
+                {% set status_info.badge_class = 'success' %}
+                {% set status_info.status_text = '正常' %}
+            {% endif %}
+        
+        {# 网络监控 #}
+        {% elif item.monitor_type == 'network' %}
+            {% set warning = threshold.get('warning', 1000000) %}
+            {% set critical = threshold.get('critical', 5000000) %}
+            
+            {% if item.value >= critical %}
+                {% set status_info.level = 'critical' %}
+                {% set status_info.badge_class = 'danger' %}
+                {% set status_info.status_text = '异常' %}
+            {% elif item.value >= warning %}
+                {% set status_info.level = 'warning' %}
+                {% set status_info.badge_class = 'warning' %}
+                {% set status_info.status_text = '警告' %}
+            {% else %}
+                {% set status_info.level = 'normal' %}
+                {% set status_info.badge_class = 'success' %}
+                {% set status_info.status_text = '正常' %}
+            {% endif %}
+        
+        {# SSL证书监控 #}
+        {% elif item.monitor_type == 'ssl' %}
+            {% set warning_days = threshold.get('warning_days', 30) %}
+            {% set critical_days = threshold.get('critical_days', 7) %}
+            
+            {% if item.value <= critical_days %}
+                {% set status_info.level = 'critical' %}
+                {% set status_info.badge_class = 'danger' %}
+                {% set status_info.status_text = '异常' %}
+            {% elif item.value <= warning_days %}
+                {% set status_info.level = 'warning' %}
+                {% set status_info.badge_class = 'warning' %}
+                {% set status_info.status_text = '警告' %}
+            {% else %}
+                {% set status_info.level = 'normal' %}
+                {% set status_info.badge_class = 'success' %}
+                {% set status_info.status_text = '正常' %}
+            {% endif %}
+        {% endif %}
+    
+    {# 对于API和组件监控，使用is_normal字段 #}
+    {% else %}
+        {% if item.is_normal %}
+            {% set status_info.level = 'normal' %}
+            {% set status_info.badge_class = 'success' %}
+            {% set status_info.status_text = '正常' %}
+        {% else %}
+            {% set status_info.level = 'critical' %}
+            {% set status_info.badge_class = 'danger' %}
+            {% set status_info.status_text = '异常' %}
+        {% endif %}
+    {% endif %}
+    
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card status-card status-{{ status_info.level }}-borderleft">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title">{{ item.config_name }}</h6>
+                    <span class="badge bg-{{ status_info.badge_class }}">
+                        {{ status_info.status_text }}
+                    </span>
+                </div>
+                
+                <p class="card-text text-muted small">{{ item.monitor_type|upper }}</p>
+                
+                {% if item.value is not none %}
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <small>当前值:</small>
+                        <small><strong>
+                            {% if item.monitor_type in ['cpu','memory','disk'] %}
+                                {{ "%.1f"|format(item.value) }}%
+                            {% elif item.monitor_type == 'ssl' %}
+                                {{ "%.0f"|format(item.value) }}天
+                            {% elif item.monitor_type == 'network' %}
+                                {{ "%.2f"|format(item.value / (1024*1024)) }}MB/s
+                            {% else %}
+                                {{ item.value }}
+                            {% endif %}
+                        </strong></small>
+                    </div>
+                    
+                    {# 显示进度条（仅适用于百分比类型的监控） #}
+                    {% if item.monitor_type in ['cpu','memory','disk'] %}
+                    <div class="progress mt-1">
+                        <div class="progress-bar 
+                            {% if status_info.level == 'normal' %}bg-success
+                            {% elif status_info.level == 'warning' %}bg-warning
+                            {% else %}bg-danger{% endif %}" 
+                            style="width: {{ item.value }}%">
+                        </div>
+                    </div>
+                    
+                    {# 显示阈值信息 #}
+                    {% if item.threshold_config %}
+                    <div class="threshold-info mt-1">
+                        阈值: 警告{{ item.threshold_config.get('warning', 80) }}% / 
+                        异常{{ item.threshold_config.get('critical', 90) }}%
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {# 网络监控阈值信息 #}
+                    {% if item.monitor_type == 'network' and item.threshold_config %}
+                    <div class="threshold-info mt-1">
+                        阈值: 警告{{ "%.1f"|format(item.threshold_config.get('warning', 1000000) / (1024*1024)) }}MB/s / 
+                        异常{{ "%.1f"|format(item.threshold_config.get('critical', 5000000) / (1024*1024)) }}MB/s
+                    </div>
+                    {% endif %}
+                    
+                    {# SSL监控阈值信息 #}
+                    {% if item.monitor_type == 'ssl' and item.threshold_config %}
+                    <div class="threshold-info mt-1">
+                        阈值: 警告{{ item.threshold_config.get('warning_days', 30) }}天 / 
+                        异常{{ item.threshold_config.get('critical_days', 7) }}天
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <p class="card-text small">
+                    {% if item.status %}
+                        {{ item.status }}
+                    {% else %}
+                        {% if status_info.level == 'normal' %}运行正常
+                        {% elif status_info.level == 'warning' %}接近阈值
+                        {% else %}超过阈值{% endif %}
+                    {% endif %}
+                </p>
+                
+                <div class="text-end">
+                    <small class="text-muted">
+                        {% if item.created_time %}
+                            {{ item.created_time[:16] }}
+                        {% else %}
+                            时间未知
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 在调度器状态卡片后添加执行统计 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">任务执行统计</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <p><strong>总执行次数:</strong> {{ execution_stats.total_executions }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>成功:</strong> {{ execution_stats.successful_executions }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>失败:</strong> {{ execution_stats.failed_executions }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>超时:</strong> {{ execution_stats.timeout_executions }}</p>
+                    </div>
+                </div>
+                {% if execution_stats.last_execution_time %}
+                <p><strong>最后执行时间:</strong> 
+                    {{ execution_stats.last_execution_time | format_timestamp }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 运行中的任务 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-list-task"></i> 运行中的任务</h5>
+            </div>
+            <div class="card-body">
+                {% if running_tasks %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>配置ID</th>
+                                <th>间隔(秒)</th>
+                                <th>下次运行时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in running_tasks %}
+                            <tr>
+                                <td>{{ task.name }}</td>
+                                <td>{{ task.config_id }}</td>
+                                <td>{{ task.interval }}</td>
+                                <td>{{ task.next_run_time if task.next_run_time else '未知' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">没有运行中的任务</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshStatus() {
+    fetch('/api/real-time-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+}
+
+// 自动刷新状态（每30秒）
+setInterval(refreshStatus, 30000);
+
+// 当日健康状态点击事件 - 跳转到报警页面并筛选对应配置
+document.addEventListener('DOMContentLoaded', function() {
+    const healthItems = document.querySelectorAll('.health-item.enabled');
+    healthItems.forEach(item => {
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', function() {
+            const configName = this.querySelector('.health-name').textContent.trim();
+            const configId = this.getAttribute('data-config-id');
+            
+            // 获取当前日期用于筛选
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 0);
+            const weekAgoStr = weekAgo.toISOString().split('T')[0];
+            
+            // 跳转到报警页面，使用config_id参数进行筛选
+            if (configId) {
+                window.location.href = `/alerts?start_date=${weekAgoStr}&end_date=${today}&config_id=${configId}`;
+            } else {
+                // 如果没有config_id，使用配置名称搜索（备用方案）
+                window.location.href = `/alerts?start_date=${weekAgoStr}&end_date=${today}&search=${encodeURIComponent(configName)}`;
+            }
+        });
+    });
+    
+    // 为健康状态项添加悬停提示
+    healthItems.forEach(item => {
+        const configName = item.querySelector('.health-name').textContent.trim();
+        item.setAttribute('title', `点击查看"${configName}"的报警记录`);
+    });
+});
+</script>
+{% endblock %}

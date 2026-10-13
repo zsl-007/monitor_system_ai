@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}系统监测平台{% endblock %}</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet"> <!-- https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css -->
+    <link href="/static/css/bootstrap-icons.css" rel="stylesheet"> <!-- https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css -->
+    <link href="/static/css/custom.css" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-graph-up"></i> 系统监测平台
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/status' %}active{% endif %}" href="/status">
+                            <i class="bi bi-speedometer2"></i> 实时状态
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/config' %}active{% endif %}" href="/config">
+                            <i class="bi bi-gear"></i> 配置管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/alerts' %}active{% endif %}" href="/alerts">
+                            <i class="bi bi-bell"></i> 报警数据
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/history' %}active{% endif %}" href="/history">
+                            <i class="bi bi-clock-history"></i> 历史数据
+                        </a>
+                    </li>
+                </ul>
+                <span class="navbar-text">
+                    <i class="bi bi-clock ms-3"></i> <span id="current-time">{{ now.strftime('%Y-%m-%d %H:%M:%S') if now else '' }}</span>
+                    <span class="project-name me-3" data-bs-toggle="tooltip" data-bs-placement="bottom" title="点击配置页面修改项目名称">
+                        <i class="bi bi-server"></i> {{ project_name }}
+                    </span>
+                    {% if current_user %}
+                    <div class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-white" href="#" id="navbarDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                                    <i class="bi bi-key"></i> 修改密码
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="logout()">
+                                    <i class="bi bi-box-arrow-right"></i> 退出登录
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- 在 base.html 的页脚之前添加修改密码模态框 -->
+    <!-- 修改密码模态框 -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">修改密码</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="change-password-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">当前密码</label>
+                            <input type="password" class="form-control" id="current_password" name="current_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">新密码</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required minlength="6">
+                            <div class="form-text">密码长度至少6位</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">确认新密码</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="6">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">修改密码</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>    
+
+    <!-- 页脚 -->
+    <footer class="bg-light mt-5 py-3">
+        <div class="container text-center">
+            <small class="text-muted">系统监测平台 &copy; 2025 V{{m_version}}</small>
+        </div>
+    </footer>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script> <!-- https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js -->
+    <script src="/static/js/chart.js"></script><!-- https://cdn.jsdelivr.net/npm/chart.js  https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.js-->
+    <script src="/static/js/common.js"></script>
+    <script>
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/login';
+                    } else {
+                        alert('退出登录失败: ' + (data.error || '未知错误'));
+                    }
+                })
+                .catch(error => {
+                    console.error('退出登录失败:', error);
+                    // 即使出错也跳转到登录页面
+                    window.location.href = '/login';
+                });
+            }
+        }
+        
+        // 修改密码
+        document.addEventListener('DOMContentLoaded', function() {
+            const changeProjectNameBtn = document.querySelector('.project-name');
+            if (changeProjectNameBtn)
+            {
+                changeProjectNameBtn.addEventListener('click', function() {
+                    window.location.href = `/config`;
+                });
+            }
+
+            const changePasswordForm = document.getElementById('change-password-form');
+            if (changePasswordForm) {
+                changePasswordForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const data = {
+                        current_password: formData.get('current_password'),
+                        new_password: formData.get('new_password'),
+                        confirm_password: formData.get('confirm_password')
+                    };
+                    
+                    // 显示加载状态
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 修改中...';
+                    submitBtn.disabled = true;
+                    
+                    /*
+                    fetch('/api/change-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify(data)
+                    })
+                    */
+                    fetch(`/api/change-password?current_password=${encodeURIComponent(data.current_password)}&new_password=${encodeURIComponent(data.new_password)}&confirm_password=${encodeURIComponent(data.confirm_password)}`, {
+                        method: 'POST',
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data)
+                        if (data.success) {
+                            showMessage('密码修改成功', 'success');
+                            // 关闭模态框
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+                            modal.hide();
+                            // 清空表单
+                            changePasswordForm.reset();
+                        } else {
+                            showMessage('密码修改失败: ' + (data.detail || data.error), 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showMessage('密码修改失败: ' + error.message, 'error');
+                    })
+                    .finally(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    });
+                });
+            }
+            
+            // 验证密码一致性
+            const newPassword = document.getElementById('new_password');
+            const confirmPassword = document.getElementById('confirm_password');
+            
+            if (newPassword && confirmPassword) {
+                function validatePassword() {
+                    if (newPassword.value !== confirmPassword.value) {
+                        confirmPassword.setCustomValidity('密码不一致');
+                    } else {
+                        confirmPassword.setCustomValidity('');
+                    }
+                }
+                
+                newPassword.addEventListener('input', validatePassword);
+                confirmPassword.addEventListener('input', validatePassword);
+            }
+        });
+        </script>
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

@@ -1,0 +1,239 @@
+/* 自定义样式 */
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: 600;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    font-weight: 600;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.badge {
+    font-weight: 500;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+/* 状态指示器 */
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.status-online {
+    background-color: #28a745;
+}
+
+.status-offline {
+    background-color: #dc3545;
+}
+
+.status-warning {
+    background-color: #ffc107;
+}
+
+/* 表单样式 */
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+
+/* 加载动画 */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 邮箱配置测试相关样式 */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* 表单验证样式 */
+.is-invalid {
+    border-color: #dc3545;
+}
+
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+
+/* 成功/错误提示样式 */
+.alert h5.alert-heading {
+    margin-bottom: 0.5rem;
+}
+
+.alert ul {
+    margin-bottom: 0;
+}
+
+.alert hr {
+    margin: 1rem 0;
+}
+
+/* 模态框修复样式 */
+.modal-backdrop {
+    z-index: 1040;
+}
+
+.modal {
+    z-index: 1050;
+}
+
+/* 强制隐藏模态框背景 */
+body.modal-open {
+    overflow: auto;
+    padding-right: 0 !important;
+}
+
+/* 修复多个背景叠加 */
+.modal-backdrop.show {
+    opacity: 0.5;
+}
+
+/* 确保只有一个背景 */
+.modal-backdrop:not(:first-child) {
+    display: none;
+}
+
+/* JSON 验证样式 */
+.json-feedback {
+    display: block;
+}
+
+/* 有效的 JSON 输入框 */
+textarea.is-valid {
+    border-color: #198754;
+}
+
+/* 无效的 JSON 输入框 */
+textarea.is-invalid {
+    border-color: #dc3545;
+}
+
+/* 表单文本样式 */
+.form-text {
+    font-size: 0.875em;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* 阈值输入框样式 */
+.threshold-input {
+    max-width: 120px;
+}
+
+/* 项目名称样式 */
+.project-name {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.project-name:hover {
+    color: #ffc107 !important;
+}
+
+/* 导航栏文本样式调整 */
+.navbar-text {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* 项目名称配置卡片 */
+.card-header.bg-info {
+    background: linear-gradient(135deg, #17a2b8, #138496) !important;
+}
+
+/* 导航栏下拉菜单样式 */
+.navbar-nav .dropdown-menu {
+    border: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.navbar-nav .dropdown-item {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+.nav-item .dropdown-item{
+    color:#495057 !important;
+}
+.navbar-nav .dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+}
+
+.navbar-nav .dropdown-item i {
+    margin-right: 8px;
+    width: 16px;
+    text-align: center;
+}
+
+/* 确保下拉菜单在导航栏中正确显示 */
+.navbar-dark .navbar-nav .nav-link.dropdown-toggle {
+    color: rgba(255,255,255,0.9) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link.dropdown-toggle:hover,
+.navbar-dark .navbar-nav .nav-link.dropdown-toggle:focus {
+    color: rgba(255,255,255,1) !important;
+}
+
+/* 下拉菜单分隔线样式 */
+.dropdown-divider {
+    margin: 4px 0;
+}
+
+/* 确保下拉菜单箭头正确显示 */
+.navbar-nav .dropdown-toggle::after {
+    margin-left: 6px;
+    vertical-align: middle;
+}

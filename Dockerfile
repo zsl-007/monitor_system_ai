@@ -24,6 +24,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
+# ===== 关键修复：设置 LD_LIBRARY_PATH 指向 dmPython 自带的 dmssl 目录 =====
+# dmPython whl 包内置了 SSL 加密模块，位于 site-packages/dmssl 目录下
+# python:3.9-slim 镜像缺少满足要求的系统级 libssl，需要通过 LD_LIBRARY_PATH 指向自带库
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.9/site-packages/dmssl
+
 # 复制项目代码
 COPY monitor_system/ ./monitor_system/
 

@@ -43,3 +43,6 @@ psycopg2-binary==2.9.10
 pymssql==2.3.4
 # dmPython 为达梦数据库专用驱动，需从达梦官方获取，不通过 pip 安装
 # 安装方式：将 dmPython.whl 放入项目目录后 pip install dmPython.whl
+dmPython>=2.5.38
+# 达梦数据库: dmPython 驱动（PyPI 包名 dmPython，导入名 dmPython）
+# whl 包内置 DPI 运行时，无需额外安装达梦数据库软件

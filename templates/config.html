@@ -13,6 +13,21 @@
     .config-card:hover {
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+    /* 可折叠卡片头部：手型光标 + 禁止文本选中 */
+    .collapsible-header {
+        cursor: pointer;
+        user-select: none;
+    }
+    /* 折叠箭头：旋转过渡动画 */
+    .collapse-icon {
+        font-size: 1.1rem;
+        transition: transform 0.25s ease;
+        opacity: 0.9;
+    }
+    /* 展开状态：箭头旋转 180° */
+    .card-header[aria-expanded="true"] .collapse-icon {
+        transform: rotate(180deg);
+    }
 </style>
 {% endblock %}
 
@@ -24,7 +39,7 @@
     </div>
 </div>
 
-<!-- 在邮箱配置之前添加项目名称配置 -->
+<!-- 项目名称配置（保持原样） -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card config-card">
@@ -36,7 +51,7 @@
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label for="project_name" class="form-label">项目名称</label><small class="text-muted ms-2">(此名称将显示在页面顶部和报警邮件中)</small>
-                            <input type="text" class="form-control" id="project_name" name="project_name" 
+                            <input type="text" class="form-control" id="project_name" name="project_name"
                                    value="{{ project_name }}" placeholder="请输入项目名称" required>
                         </div>
                         <div class="col-md-4 d-flex align-items-end">
@@ -51,65 +66,134 @@
     </div>
 </div>
 
-<!-- 邮箱配置 -->
+<!-- 邮箱配置：原样式 + 可折叠 -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card config-card">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center collapsible-header"
+                 data-bs-toggle="collapse"
+                 data-bs-target="#emailConfigCollapse"
+                 aria-expanded="false">
                 <h5 class="card-title mb-0"><i class="bi bi-envelope"></i> 邮箱配置</h5>
+                <i class="bi bi-chevron-down collapse-icon"></i>
             </div>
-            <div class="card-body">
-                <form id="email-config-form">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="smtp_server" class="form-label">SMTP服务器</label>
-                            <input type="text" class="form-control" id="smtp_server" name="smtp_server" 
-                                   value="{{ email_config.smtp_server if email_config else '' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="smtp_port" class="form-label">SMTP端口</label>
-                            <input type="number" class="form-control" id="smtp_port" name="smtp_port" 
-                                   value="{{ email_config.smtp_port if email_config else 587 }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="username" class="form-label">用户名</label>
-                            <input type="text" class="form-control" id="username" name="username" 
-                                   value="{{ email_config.username if email_config else '' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="password" class="form-label">密码</label>
-                            <input type="password" class="form-control" id="password" name="password" 
-                                   value="{{ email_config.password if email_config else '' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="sender" class="form-label">发件人邮箱</label>
-                            <input type="email" class="form-control" id="sender" name="sender" 
-                                   value="{{ email_config.sender if email_config else '' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="receivers" class="form-label">收件人邮箱（多个用分号隔开）</label>
-                            <input type="text" class="form-control" id="receivers" name="receivers" 
-                                   value="{{ email_config.receivers if email_config else '' }}" required>
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="ssl_enabled" name="ssl_enabled" 
-                                       {{ 'checked' if email_config and email_config.ssl_enabled else '' }}>
-                                <label class="form-check-label" for="ssl_enabled">启用SSL</label>
+            <div class="collapse" id="emailConfigCollapse">
+                <div class="card-body">
+                    <form id="email-config-form">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="smtp_server" class="form-label">SMTP服务器</label>
+                                <input type="text" class="form-control" id="smtp_server" name="smtp_server"
+                                       value="{{ email_config.smtp_server if email_config else '' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="smtp_port" class="form-label">SMTP端口</label>
+                                <input type="number" class="form-control" id="smtp_port" name="smtp_port"
+                                       value="{{ email_config.smtp_port if email_config else 587 }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="username" class="form-label">用户名</label>
+                                <input type="text" class="form-control" id="username" name="username"
+                                       value="{{ email_config.username if email_config else '' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="password" class="form-label">密码</label>
+                                <input type="password" class="form-control" id="password" name="password"
+                                       value="{{ email_config.password if email_config else '' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="sender" class="form-label">发件人邮箱</label>
+                                <input type="email" class="form-control" id="sender" name="sender"
+                                       value="{{ email_config.sender if email_config else '' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="receivers" class="form-label">收件人邮箱（多个用分号隔开）</label>
+                                <input type="text" class="form-control" id="receivers" name="receivers"
+                                       value="{{ email_config.receivers if email_config else '' }}" required>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="ssl_enabled" name="ssl_enabled"
+                                           {{ 'checked' if email_config and email_config.ssl_enabled else '' }}>
+                                    <label class="form-check-label" for="ssl_enabled">启用SSL</label>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">保存邮箱配置</button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="testEmailConfig()">测试发送</button>
-                    </div>
-                </form>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">保存邮箱配置</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="testEmailConfig()">测试发送</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 监控配置 -->
+<!-- Webhook 推送配置：与邮箱配置同款样式 + 可折叠 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card config-card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center collapsible-header"
+                 data-bs-toggle="collapse"
+                 data-bs-target="#webhookConfigCollapse"
+                 aria-expanded="false">
+                <h5 class="card-title mb-0"><i class="bi bi-link-45deg"></i> Webhook 推送配置</h5>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse" id="webhookConfigCollapse">
+                <div class="card-body">
+                    <!-- Webhook 列表（由 JS 渲染） -->
+                    <div id="webhook-list">
+                        <p class="text-muted mb-0">加载中...</p>
+                    </div>
+                    <hr>
+                    <h6 class="mb-3">添加 Webhook</h6>
+                    <form id="webhook-form">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <input type="text" class="form-control"
+                                       name="webhook_name"
+                                       placeholder="名称（如：Hermes Agent）" required>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="url" class="form-control"
+                                       name="webhook_url"
+                                       placeholder="URL（如：http://hermes-server:8644/webhooks/monitor-alert）"
+                                       required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" class="form-control"
+                                       name="webhook_secret"
+                                       placeholder="HMAC Secret（可选）">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex gap-2">
+                                    <button type="button" id="webhook-test-btn"
+                                            class="btn btn-outline-primary flex-fill">
+                                        <i class="bi bi-plug"></i> 测试连接
+                                    </button>
+                                    <button type="submit" class="btn btn-success flex-fill">
+                                        添加
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted ms-2">企业微信群webhook获取方法：群聊->右上角三个小点->消息推送->添加->填写：名称、简介->复制webhook地址->保存</small>
+                            </div>
+                            
+                        </div>
+
+                        <!-- 测试结果提示区（初始隐藏） -->
+                        <div id="webhook-test-result" class="mt-3" style="display:none;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 监控配置（保持原样） -->
 <div class="row">
     <div class="col-12">
         <div class="card config-card">
@@ -157,19 +241,19 @@
                                 </td>
                                 <td>
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input toggle-switch" type="checkbox" 
-                                               data-config-id="{{ config.id }}" 
+                                        <input class="form-check-input toggle-switch" type="checkbox"
+                                               data-config-id="{{ config.id }}"
                                                {{ 'checked' if config.enabled else '' }}>
                                     </div>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary edit-config" 
-                                            data-config-id="{{ config.id }}" 
+                                    <button class="btn btn-sm btn-outline-primary edit-config"
+                                            data-config-id="{{ config.id }}"
                                             data-bs-toggle="modal" data-bs-target="#editConfigModal">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger delete-config" 
-                                            data-config-id="{{ config.id }}" 
+                                    <button class="btn btn-sm btn-outline-danger delete-config"
+                                            data-config-id="{{ config.id }}"
                                             data-config-name="{{ config.name }}">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -184,7 +268,7 @@
     </div>
 </div>
 
-<!-- 添加配置模态框 -->
+<!-- 添加配置模态框（保持原样） -->
 <div class="modal fade" id="addConfigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -195,7 +279,6 @@
             <form id="add-config-form">
                 <div class="modal-body">
                     <div id="add-config-form-content">
-                        <!-- 表单内容会由JavaScript动态生成 -->
                         <div class="text-center text-muted py-4">
                             <div class="spinner-border" role="status">
                                 <span class="visually-hidden">加载中...</span>
@@ -213,7 +296,7 @@
     </div>
 </div>
 
-<!-- 编辑配置模态框 -->
+<!-- 编辑配置模态框（保持原样） -->
 <div class="modal fade" id="editConfigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -224,7 +307,6 @@
             <form id="edit-config-form">
                 <div class="modal-body">
                     <div id="edit-config-form-content">
-                        <!-- 表单内容会由JavaScript动态生成 -->
                         <div class="text-center text-muted py-4">
                             <div class="spinner-border" role="status">
                                 <span class="visually-hidden">加载中...</span>
@@ -236,12 +318,6 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     <button type="submit" class="btn btn-primary">保存</button>
-                    <!-- 添加强制关闭按钮 -->
-					<!--
-                    <button type="button" class="btn btn-outline-danger" onclick="forceCloseAllModals()" title="如果模态框无法关闭，点击此按钮">
-                        <i class="bi bi-x-circle"></i> 强制关闭
-                    </button>
-					-->
                 </div>
             </form>
         </div>
@@ -249,16 +325,11 @@
 </div>
 {% endblock %}
 
-<!-- 在文件底部，extra_js 块之前添加 -->
-<!-- 在 config.html 的底部，extra_js 块之前添加 -->
-
-
 {% block extra_js %}
 <script id="disk-partitions-data" type="application/json">
     {{ disk_partitions | tojson }}
 </script>
 <script>
-    // 从隐藏的JSON元素中读取磁盘分区数据
     try {
         const diskPartitionsElement = document.getElementById('disk-partitions-data');
         if (diskPartitionsElement) {
@@ -276,7 +347,6 @@
     {{ network_interfaces | tojson }}
 </script>
 <script>
-    // 安全地获取网络接口数据
     (function() {
         const networkInterfacesElement = document.getElementById('network-interfaces-data');
         if (networkInterfacesElement && networkInterfacesElement.textContent) {
@@ -294,4 +364,196 @@
 </script>
 
 <script src="/static/js/config.js"></script>
+
+<script>
+    (function() {
+        'use strict';
+    
+        function renderWebhookList(items) {
+            const container = document.getElementById('webhook-list');
+            if (!container) return;
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p class="text-muted mb-0">暂无 Webhook 配置</p>';
+                return;
+            }
+            let html = '<table class="table table-sm align-middle mb-0">'
+                + '<thead><tr>'
+                + '<th>名称</th><th>URL</th><th>状态</th><th class="text-end">操作</th>'
+                + '</tr></thead><tbody>';
+            items.forEach(function(wh) {
+                const status = wh.enabled
+                    ? '<span class="badge bg-success">启用</span>'
+                    : '<span class="badge bg-secondary">禁用</span>';
+                html += '<tr>'
+                    + '<td>' + wh.name + '</td>'
+                    + '<td><code>' + wh.url + '</code></td>'
+                    + '<td>' + status + '</td>'
+                    + '<td class="text-end">'
+                    + '<button class="btn btn-sm btn-outline-danger" data-del="' + wh.id + '">删除</button>'
+                    + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+    
+            container.querySelectorAll('[data-del]').forEach(function(btn) {
+                btn.addEventListener('click', async function() {
+                    const id = this.getAttribute('data-del');
+                    if (!confirm('确定删除此 Webhook 配置？')) return;
+                    try {
+                        const resp = await fetch('/api/webhooks/' + id, {method: 'DELETE'});
+                        const r = await resp.json();
+                        if (r.success) loadWebhookList();
+                        else alert('删除失败: ' + (r.error || '未知错误'));
+                    } catch (e) {
+                        alert('删除失败: ' + e.message);
+                    }
+                });
+            });
+        }
+    
+        async function loadWebhookList() {
+            const container = document.getElementById('webhook-list');
+            if (!container) return;
+    
+            try {
+                const resp = await fetch('/api/webhooks', {
+                    headers: {'Accept': 'application/json'},
+                    credentials: 'same-origin'
+                });
+    
+                // 关键：先看 HTTP 状态码和 Content-Type，避免"非 JSON 响应"被当成 JSON 解析
+                const contentType = resp.headers.get('content-type') || '';
+                if (!resp.ok || !contentType.includes('application/json')) {
+                    let raw = '';
+                    try { raw = (await resp.text()).slice(0, 200); } catch (e) {}
+                    container.innerHTML = '<p class="text-danger mb-0">'
+                        + '加载失败：HTTP ' + resp.status
+                        + (raw ? '，响应：<code>' + raw.replace(/</g, '&lt;') + '</code>' : '')
+                        + '</p>';
+                    return;
+                }
+    
+                const r = await resp.json();
+                if (r.success) {
+                    renderWebhookList(r.data);
+                } else {
+                    container.innerHTML = '<p class="text-danger mb-0">'
+                        + '加载失败：' + (r.error || '后端返回 success=false')
+                        + '</p>';
+                }
+            } catch (e) {
+                console.error('加载 Webhook 列表失败:', e);
+                container.innerHTML = '<p class="text-danger mb-0">'
+                    + '加载失败：' + e.message + '（请查看浏览器控制台 / Network 面板）'
+                    + '</p>';
+            }
+        }
+    
+        // ============ 测试连接按钮 ============
+        const testBtn = document.getElementById('webhook-test-btn');
+        const testResult = document.getElementById('webhook-test-result');
+
+        function showTestResult(success, message) {
+            if (!testResult) return;
+            testResult.style.display = 'block';
+            if (success) {
+                testResult.innerHTML = '<div class="alert alert-success py-2 mb-0">'
+                    + '<i class="bi bi-check-circle"></i> ' + message + '</div>';
+            } else {
+                testResult.innerHTML = '<div class="alert alert-danger py-2 mb-0">'
+                    + '<i class="bi bi-x-circle"></i> ' + message + '</div>';
+            }
+        }
+
+        if (testBtn) {
+            testBtn.addEventListener('click', async function() {
+                const formEl = document.getElementById('webhook-form');
+                if (!formEl) return;
+
+                const url = (formEl.querySelector('[name="webhook_url"]').value || '').trim();
+                const secret = (formEl.querySelector('[name="webhook_secret"]').value || '').trim();
+
+                if (!url) {
+                    showTestResult(false, '请先填写 Webhook URL');
+                    return;
+                }
+
+                // 禁用按钮 + loading 状态
+                const originalHtml = testBtn.innerHTML;
+                testBtn.disabled = true;
+                testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 测试中...';
+                testResult.style.display = 'none';
+
+                try {
+                    const resp = await fetch('/api/webhooks/test', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        body: JSON.stringify({url: url, secret: secret})
+                    });
+
+                    const contentType = resp.headers.get('content-type') || '';
+                    if (!resp.ok || !contentType.includes('application/json')) {
+                        const raw = await resp.text();
+                        showTestResult(false, 'HTTP ' + resp.status + '：' + raw.slice(0, 200));
+                        return;
+                    }
+
+                    const r = await resp.json();
+                    if (r.success) {
+                        showTestResult(true, r.message || '推送成功');
+                    } else {
+                        showTestResult(false, '推送失败：' + (r.error || '未知错误'));
+                    }
+                } catch (e) {
+                    showTestResult(false, '请求失败：' + e.message);
+                } finally {
+                    testBtn.disabled = false;
+                    testBtn.innerHTML = originalHtml;
+                }
+            });
+        }
+        // ======================================
+
+
+        const form = document.getElementById('webhook-form');
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fd = new FormData(form);
+                const data = {
+                    name: fd.get('webhook_name'),
+                    url: fd.get('webhook_url'),
+                    secret: fd.get('webhook_secret') || ''
+                };
+                try {
+                    const resp = await fetch('/api/webhooks', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        body: JSON.stringify(data)
+                    });
+                    const contentType = resp.headers.get('content-type') || '';
+                    if (!resp.ok || !contentType.includes('application/json')) {
+                        const raw = await resp.text();
+                        alert('添加失败：HTTP ' + resp.status + '\n' + raw.slice(0, 200));
+                        return;
+                    }
+                    const r = await resp.json();
+                    if (r.success) {
+                        form.reset();
+                        loadWebhookList();
+                    } else {
+                        alert('添加失败：' + (r.error || '未知错误'));
+                    }
+                } catch (e) {
+                    alert('添加失败：' + e.message);
+                }
+            });
+        }
+    
+        // 页面一打开就加载列表（即使表单不存在也执行）
+        loadWebhookList();
+    })();
+    </script>
 {% endblock %}

@@ -35,6 +35,7 @@ class AlertRecord:
     alert_time: datetime
     sent: bool = False
     receiver: str = ""
+    record_id: Optional[int] = None   # 新增：数据库自增ID，用于关联 Webhook 推送记录
 
 class AlertManager:
     """报警管理器"""
@@ -258,39 +259,64 @@ class AlertManager:
             return '服务器监控系统'
     """
 
+    # 发送报警邮件，并推送 Webhook
     # 修改邮件主题
     async def send_alert_email(self, alert_record: AlertRecord) -> bool:
-        """发送报警邮件"""
-        if not self.email_config:
-            logger.error("无法发送邮件：未配置邮箱信息")
-            return False
-        
-        try:
-            # 检查是否应该发送（去重）
-            if not self.should_send_alert(alert_record):
-                return True  # 认为是"成功"，因为是有意不发送 
+        """发送报警邮件，并推送 Webhook 报警"""
+        email_success = False
 
-            project_name = config_manager.get_project_name() #project_name = self.get_project_name()
-            
-            # 构建邮件内容
-            subject = f"{project_name}报警 - {alert_record.alert_time.strftime('%Y-%m-%d %H:%M:%S')}"
-            body = self._build_email_content(alert_record)
-            
-            # 发送邮件
-            success = await self._send_email(subject, body)
-            
-            if success:
-                alert_record.sent = True
-                alert_record.receiver = self.email_config.get('receivers', '')
-                logger.info(f"报警邮件发送成功: {alert_record.alert_message}")
-            else:
-                logger.error(f"报警邮件发送失败: {alert_record.alert_message}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"发送报警邮件异常: {e}")
-            return False
+        # 统一做去重检查（邮件和 Webhook 共用同一次判断，避免重复推送）
+        should_send = self.should_send_alert(alert_record)
+
+        # ---------- 1. 邮件发送 ----------
+        if not self.email_config:
+            logger.warning("未配置邮箱，跳过邮件发送（Webhook 仍会推送）")
+        elif not should_send:
+            # 去重：视为已发送
+            email_success = True
+            logger.debug(f"报警去重，跳过邮件: {alert_record.alert_message}")
+        else:
+            try:
+                project_name = config_manager.get_project_name()
+                subject = f"{project_name}报警 - {alert_record.alert_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                body = self._build_email_content(alert_record)
+                success = await self._send_email(subject, body)
+                if success:
+                    alert_record.sent = True
+                    alert_record.receiver = self.email_config.get('receivers', '')
+                    logger.info(f"报警邮件发送成功: {alert_record.alert_message}")
+                    email_success = True
+                else:
+                    logger.error(f"报警邮件发送失败: {alert_record.alert_message}")
+            except Exception as e:
+                logger.error(f"发送报警邮件异常: {e}")
+
+        # ---------- 2. Webhook 推送 ----------
+        if should_send:
+            try:
+                await self._push_alert_webhooks(alert_record)
+            except Exception as e:
+                logger.error(f"Webhook 推送异常: {e}")
+        else:
+            logger.debug(f"报警去重，跳过 Webhook 推送: {alert_record.alert_message}")
+
+        return email_success
+
+    async def _push_alert_webhooks(self, alert_record: AlertRecord):
+        """推送报警到所有启用的 Webhook（内部会保证记录已保存并拿到 alert_id）"""
+        # 若还没有 record_id，说明调用方还没来得及保存记录，这里先保存
+        if not getattr(alert_record, 'record_id', None):
+            self.save_alert_record(alert_record)
+
+        alert_id = getattr(alert_record, 'record_id', None)
+        if not alert_id:
+            logger.warning("未获取到 alert_id，跳过 Webhook 推送")
+            return
+
+        # 延迟导入，避免模块初始化时的循环依赖
+        from modules.webhook import WebhookManager
+        wm = WebhookManager()
+        await wm.push_alert(alert_id, alert_record)
     
     # 修改邮件构建方法
     def _build_email_content(self, alert_record: AlertRecord) -> str:
@@ -398,7 +424,8 @@ class AlertManager:
     
     def save_alert_record(self, alert_record: AlertRecord) -> bool:
         """
-        保存报警记录到数据库
+        保存报警记录到数据库，并回填自增 ID（用于 Webhook 关联）
+        幂等：如果已经保存过，直接返回 True，避免重复插入
         
         Args:
             alert_record: 报警记录
@@ -406,8 +433,13 @@ class AlertManager:
         Returns:
             保存是否成功
         """
+        # 幂等保护：已经保存过则跳过（如调用方已在外面保存，或 _push_alert_webhooks 中已保存）
+        if getattr(alert_record, 'record_id', None):
+            logger.debug(f"报警记录已存在 (id={alert_record.record_id})，跳过保存")
+            return True
+
         try:
-            execute_insert('''
+            record_id = execute_insert('''
                 INSERT INTO alert_data 
                 (config_id, monitor_type, alert_message, alert_time, sent, receiver)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -419,13 +451,16 @@ class AlertManager:
                 alert_record.sent,
                 alert_record.receiver
             ))
-            
-            logger.debug(f"报警记录保存成功: {alert_record.alert_message}")
+
+            if record_id:
+                alert_record.record_id = record_id
+
+            logger.debug(f"报警记录保存成功 (id={record_id}): {alert_record.alert_message}")
             return True
-            
+
         except Exception as e:
             logger.error(f"保存报警记录失败: {e}")
-            return False        
+            return False       
     
     def get_recent_alerts(self, hours: int = 24, limit: int = 100) -> List[Dict[str, Any]]:
         """

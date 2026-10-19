@@ -46,3 +46,6 @@ pymssql==2.3.4
 dmPython>=2.5.38
 # 达梦数据库: dmPython 驱动（PyPI 包名 dmPython，导入名 dmPython）
 # whl 包内置 DPI 运行时，无需额外安装达梦数据库软件
+# # dmPython whl 包内置了 SSL 加密模块，位于 site-packages/dmssl 目录下
+# #python:3.9-slim 镜像缺少满足要求的系统级 libssl，需要通过 LD_LIBRARY_PATH 指向自带库
+#ENV LD_LIBRARY_PATH=/usr/local/lib/python3.9/site-packages/dmssl

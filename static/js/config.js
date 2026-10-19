@@ -170,6 +170,7 @@ function initConfigForms() {
         }
     });
 	
+
 }
 
 // 在 config.js 中添加刷新磁盘分区的函数

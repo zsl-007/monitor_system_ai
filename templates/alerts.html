@@ -128,6 +128,7 @@
                                 <th>异常情况</th>
                                 <th>是否推送</th>
                                 <th>接收人邮箱</th>
+                                <th>Webhook推送</th>   <!-- 新增 -->
                             </tr>
                         </thead>
                         <tbody>
@@ -153,6 +154,19 @@
                                 </td>
                                 <td>
                                     <small>{{ alert.receiver if alert.receiver else 'N/A' }}</small>
+                                </td>
+                                <td>
+                                    <!--Webhook推送-->
+                                    {% if alert.webhook_records %}
+                                        {% for wr in alert.webhook_records %}
+                                        <span class="badge {% if wr.success %}bg-success{% else %}bg-danger{% endif %}"
+                                              title="{{ wr.error_message or '推送成功' }}">
+                                            {{ wr.webhook_name }}: {% if wr.success %}✓{% else %}✗{% endif %}
+                                        </span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}

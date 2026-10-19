@@ -33,7 +33,7 @@ logger.add(
 logger.add(
     LOG_FILE,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-    level="DEBUG",
+    level="INFO",   #level="DEBUG",
     encoding="utf-8",
     rotation="500 MB",
     retention="7 days",

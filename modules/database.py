@@ -172,6 +172,42 @@ class DatabaseManager:
             updated_time DATETIME DEFAULT (datetime('now', 'localtime'))
         )
         ''')
+
+        # Webhook 配置表（支持多个配置）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS webhook_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL,
+                secret TEXT DEFAULT '',
+                enabled BOOLEAN DEFAULT 1,
+                created_time DATETIME DEFAULT (datetime('now', 'localtime')),
+                updated_time DATETIME DEFAULT (datetime('now', 'localtime'))
+            )
+        ''')
+
+        # Webhook 推送记录表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS webhook_push_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                alert_id INTEGER NOT NULL,
+                webhook_id INTEGER NOT NULL,
+                webhook_name TEXT DEFAULT '',
+                webhook_url TEXT DEFAULT '',
+                success BOOLEAN DEFAULT 0,
+                response_code INTEGER DEFAULT 0,
+                error_message TEXT DEFAULT '',
+                pushed_time DATETIME DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (alert_id) REFERENCES alert_data (id),
+                FOREIGN KEY (webhook_id) REFERENCES webhook_config (id)
+            )
+        ''')
+
+        # 为推送记录表创建索引
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_webhook_push_alert 
+            ON webhook_push_records(alert_id)
+        ''')
         
         # 监控数据表
         cursor.execute('''
@@ -420,7 +456,11 @@ def check_database_health() -> dict:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT name FROM sqlite_master 
-                WHERE type='table' AND name IN ('monitor_configs', 'monitor_data', 'alert_data','email_config','system_config')
+                WHERE type='table' AND name IN (
+                    'monitor_configs', 'monitor_data', 'alert_data',
+                    'email_config', 'system_config',
+                    'webhook_config', 'webhook_push_records'
+                )
             """)
             tables = [row['name'] for row in cursor.fetchall()]
             

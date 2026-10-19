@@ -120,8 +120,10 @@ if template_dir is None:
 if static_dir is None:
     raise Exception("未找到静态文件目录")
 
-print(f"模板目录: {template_dir}")
-print(f"静态文件目录: {static_dir}")
+#print(f"模板目录: {template_dir}")
+#print(f"静态文件目录: {static_dir}")
+logger.debug(f"模板目录: {template_dir}")
+logger.debug(f"静态文件目录: {static_dir}")
 
 # 修改模板配置
 templates = Jinja2Templates(directory=template_dir)
@@ -140,6 +142,10 @@ m_Version = "1.1.1" # 系统版本号
 # 全局实例
 config_manager = ConfigManager()
 task_scheduler: Optional[TaskScheduler] = None
+
+# 增加webhook推送
+from modules.webhook import WebhookManager
+webhook_manager = WebhookManager()
 
 # 数据模型
 class MonitorConfigCreate(BaseModel):
@@ -189,6 +195,11 @@ async def startup_event():
         logger.info("数据库初始化失败！")
         return
     
+    # ===== 新增：数据库已就绪，重新加载 Webhook 配置 =====
+    # 顶层创建 WebhookManager 时表还不存在，这里补一次加载
+    webhook_manager._load_webhooks()
+    # ====================================================    
+
     # 检查数据库健康状态
     #health_status = check_database_health()
     #logger.info(f"数据库健康状态: {health_status['status']} - {health_status['message']}")
@@ -441,7 +452,8 @@ async def config_page(request: Request, current_user: dict = Depends(get_current
     email_config = config_manager.get_email_config()
     monitor_types = config_manager.get_monitor_types()
     #project_name = config_manager.get_project_name()
-    
+    webhooks = webhook_manager.get_all_webhooks()   # 增加webhook推送
+
     # 获取磁盘分区信息
     from monitors.system import SystemMonitor
     disk_monitor = SystemMonitor()
@@ -455,6 +467,7 @@ async def config_page(request: Request, current_user: dict = Depends(get_current
         "monitor_configs": monitor_configs,
         "email_config": email_config,
         "monitor_types": monitor_types,
+        "webhooks": webhooks,                     # ← 新增 webhook推送
         "default_thresholds": {
             monitor_type: config_manager.get_default_thresholds(monitor_type)
             for monitor_type in monitor_types
@@ -699,6 +712,15 @@ async def alerts_page(
 
     alerts_data = execute_query(query, tuple(query_params))
     
+    # ===== 新增：为每条报警附加 Webhook 推送记录 =====
+    alert_ids = [row['id'] for row in alerts_data]
+    records_map = webhook_manager.get_push_records_for_alerts(alert_ids)
+    alerts_data = [
+        {**dict(row), 'webhook_records': records_map.get(row['id'], [])}
+        for row in alerts_data
+    ]
+    # ==================================================
+        
     # 分页信息
     pagination = {
         "page": page,
@@ -759,19 +781,31 @@ async def export_alerts(start_date: str, end_date: str, config_id: int = None):
     writer = csv.writer(output)
     
     # 写入表头
-    writer.writerow(['时间', '监控项目', '监控类型', '报警信息', '是否发送', '接收人'])
-    
+    writer.writerow(['时间', '监控项目', '监控类型', '报警信息', '是否发送','接收人', 'Webhook推送'])
+
     # 写入数据
+    alert_ids = [row['id'] for row in rows]
+    records_map = webhook_manager.get_push_records_for_alerts(alert_ids)
+
     for row in rows:
+        wh_records = records_map.get(row['id'], [])
+        if wh_records:
+            wh_summary = "; ".join(
+                f"{r['webhook_name']}:{'OK' if r['success'] else 'FAIL'}"
+                for r in wh_records
+            )
+        else:
+            wh_summary = ''
         writer.writerow([
             row['alert_time'],
             row['config_name'] or 'N/A',
             row['monitor_type'],
             row['alert_message'],
             '是' if row['sent'] else '否',
-            row['receiver'] or 'N/A'
-        ])
-    
+            row['receiver'] or 'N/A',
+            wh_summary
+        ])    
+
     from fastapi.responses import StreamingResponse
     
     output.seek(0)
@@ -1281,6 +1315,15 @@ async def get_alerts_api(
         '''
         
         alerts_data = execute_query(query, (start_dt, end_dt, per_page, offset))
+
+        # ===== 新增：为每条报警附加 Webhook 推送记录 =====
+        alert_ids = [row['id'] for row in alerts_data]
+        records_map = webhook_manager.get_push_records_for_alerts(alert_ids)
+        alerts_data = [
+            {**dict(row), 'webhook_records': records_map.get(row['id'], [])}
+            for row in alerts_data
+        ]
+        # ==================================================        
         
         return {
             "success": True, 
@@ -1442,3 +1485,190 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": exc.errors()},
     )
+
+# ==================== Webhook 推送配置 API ====================
+
+class WebhookCreate(BaseModel):
+    name: str
+    url: str
+    secret: str = ""
+    enabled: bool = True
+
+class WebhookUpdate(BaseModel):
+    name: Optional[str] = None
+    url: Optional[str] = None
+    secret: Optional[str] = None
+    enabled: Optional[bool] = None
+
+class WebhookTest(BaseModel):
+    url: str
+    secret: Optional[str] = ""
+
+@app.get("/api/webhooks")
+async def list_webhooks():
+    """获取所有 Webhook 配置"""
+    try:
+        data = webhook_manager.get_all_webhooks()
+        return {"success": True, "data": data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/webhooks")
+async def create_webhook(config: WebhookCreate):
+    """创建 Webhook 配置"""
+    try:
+        webhook_id = webhook_manager.create_webhook(config.dict())
+        if webhook_id:
+            return {"success": True, "data": {"id": webhook_id}}
+        return {"success": False, "error": "创建失败"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.put("/api/webhooks/{webhook_id}")
+async def update_webhook(webhook_id: int, config: WebhookUpdate):
+    """更新 Webhook 配置"""
+    try:
+        success = webhook_manager.update_webhook(
+            webhook_id, config.dict(exclude_unset=True)
+        )
+        return {"success": success}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.delete("/api/webhooks/{webhook_id}")
+async def delete_webhook(webhook_id: int):
+    """删除 Webhook 配置"""
+    try:
+        success = webhook_manager.delete_webhook(webhook_id)
+        return {"success": success}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/webhooks/test")
+async def test_webhook(config: WebhookTest):
+    """测试 Webhook 推送（与报警推送共用同一套签名逻辑）"""
+    try:
+        import httpx
+
+        # 按 URL 识别平台，构建对应格式的测试消息
+        platform = WebhookManager._detect_platform(config.url)
+        test_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        try:
+            project_name = config_manager.get_project_name()
+        except Exception:
+            project_name = "系统监测平台"
+
+        if platform == 'wecom':
+            test_payload = {
+                "msgtype": "text",
+                "text": {
+                    "content": (
+                        f"✅ 监控系统 Webhook 测试\n"
+                        f"项目：{project_name}\n"
+                        f"这是一条测试推送，收到即表示配置成功。\n"
+                        f"时间：{test_time}"
+                    )
+                }
+            }
+        elif platform == 'dingtalk':
+            test_payload = {
+                "msgtype": "text",
+                "text": {
+                    "content": (
+                        f"✅ 监控系统 Webhook 测试\n"
+                        f"项目：{project_name}\n"
+                        f"这是一条测试推送，收到即表示配置成功。\n"
+                        f"时间：{test_time}"
+                    )
+                }
+            }
+        elif platform == 'feishu':
+            test_payload = {
+                "msg_type": "text",
+                "content": {
+                    "text": (
+                        f"✅ 监控系统 Webhook 测试\n"
+                        f"项目：{project_name}\n"
+                        f"这是一条测试推送，收到即表示配置成功。\n"
+                        f"时间：{test_time}"
+                    )
+                }
+            }
+        else:
+            test_payload = {
+                "event_type": "test",
+                "project_name": project_name,
+                "message": "这是一条来自监控系统的 Webhook 测试推送",
+                "test_time": test_time
+            }
+
+        # ★ 关键：复用 WebhookManager 的公共签名方法，与 _push_single 完全一致
+        body_bytes, headers = WebhookManager.build_signed_request(
+            test_payload, config.secret or ""
+        )
+        logger.debug(
+            f"[Webhook测试签名] url={config.url} "
+            f"timestamp={headers.get('X-Webhook-Timestamp')} "
+            f"body_len={len(body_bytes)} "
+            f"signature={headers.get('X-Webhook-Signature-V2', '')[:16]}..."
+        )
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                config.url, content=body_bytes, headers=headers
+            )
+
+            if not (200 <= resp.status_code < 300):
+                return {
+                    "success": False,
+                    "error": f"HTTP {resp.status_code}: {resp.text[:200]}"
+                }
+
+            # HTTP 200 也要检查业务错误码
+            try:
+                resp_json = resp.json()
+            except Exception:
+                resp_json = {}
+
+            if platform == 'wecom':
+                errcode = resp_json.get('errcode', 0)
+                if errcode != 0:
+                    return {
+                        "success": False,
+                        "error": (
+                            f"企业微信返回错误 errcode={errcode}: "
+                            f"{resp_json.get('errmsg', '未知错误')}"
+                        )
+                    }
+            elif platform == 'dingtalk':
+                errcode = resp_json.get('errcode', 0)
+                if errcode != 0:
+                    return {
+                        "success": False,
+                        "error": (
+                            f"钉钉返回错误 errcode={errcode}: "
+                            f"{resp_json.get('errmsg', '未知错误')}"
+                        )
+                    }
+            elif platform == 'feishu':
+                code = resp_json.get('code', 0)
+                if code != 0:
+                    return {
+                        "success": False,
+                        "error": (
+                            f"飞书返回错误 code={code}: "
+                            f"{resp_json.get('msg', '未知错误')}"
+                        )
+                    }
+
+            return {
+                "success": True,
+                "message": f"推送成功 (HTTP {resp.status_code})"
+            }
+
+    except Exception as e:
+        logger.error(f"测试 Webhook 异常: {e}")
+        return {"success": False, "error": str(e)}
+
+# ============================================================

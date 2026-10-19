@@ -120,7 +120,7 @@ if template_dir is None:
 if static_dir is None:
     raise Exception("未找到静态文件目录")
 
-#print(f"模板目录: {template_dir}")
+##print(f"模板目录: {template_dir}")
 #print(f"静态文件目录: {static_dir}")
 logger.debug(f"模板目录: {template_dir}")
 logger.debug(f"静态文件目录: {static_dir}")
